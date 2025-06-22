@@ -5,17 +5,17 @@ import torch.nn.functional as F
 import numpy as np
 from PIL import Image
 
-# --- Definição da Arquitetura do Modelo ---
-# A classe do modelo precisa ser definida novamente para que o Streamlit
-# possa carregar os pesos no objeto de modelo correto.
-# Certifique-se de que esta definição seja IDÊNTICA à do script de treinamento.
+# --- Model Architecture Definition ---
+# The model class needs to be redefined so that Streamlit
+# can load the weights into the correct model object.
+# Ensure this definition is IDENTICAL to the one in the training script.
 
-# Parâmetros (devem ser os mesmos do treinamento)
+# Parameters (must be the same as in training)
 IMG_SIZE = 28
 NUM_CLASSES = 10
 LATENT_DIM = 10
 EMBED_DIM = 10
-device = torch.device("cpu") # Para o deploy, é mais seguro usar CPU
+device = torch.device("cpu") # For deployment, it's safer to use CPU
 
 class CVAE(nn.Module):
     def __init__(self):
@@ -54,55 +54,63 @@ class CVAE(nn.Module):
         reconstruction = self.decode(z, c)
         return reconstruction, mu, log_var
 
-# --- Carregamento do Modelo ---
-@st.cache_resource # Cacheia o modelo para melhor performance
+# --- Model Loading ---
+@st.cache_resource # Caches the model for better performance
 def load_model():
     model = CVAE().to(device)
-    # Carrega os pesos salvos no estado do modelo
+    # Loads the saved weights into the model's state
     model.load_state_dict(torch.load('cvae_mnist.pth', map_location=device))
-    model.eval() # Coloca o modelo em modo de avaliação
+    model.eval() # Sets the model to evaluation mode
     return model
 
 model = load_model()
 
-# --- Função de Geração de Imagens ---
+# --- Image Generation Function ---
 def generate_images(digit, num_images=5):
     generated_images = []
     with torch.no_grad():
         for _ in range(num_images):
-            # 1. Amostra um vetor aleatório do espaço latente
+            # 1. Sample a random vector from the latent space
             z = torch.randn(1, LATENT_DIM).to(device)
-            # 2. Cria o rótulo (condição) para o dígito desejado
+            # 2. Create the label (condition) for the desired digit
             label = torch.LongTensor([digit]).to(device)
-            # 3. Gera a imagem usando o decoder
+            # 3. Generate the image using the decoder
             output = model.decode(z, label)
-            # 4. Converte o tensor para uma imagem
+            # 4. Convert the tensor to an image
             img_tensor = output.view(IMG_SIZE, IMG_SIZE).cpu()
-            # Converte para formato de imagem PIL (escala de cinza)
+            # Convert to PIL image format (grayscale)
             pil_img = Image.fromarray((img_tensor.numpy() * 255).astype(np.uint8), 'L')
             generated_images.append(pil_img)
     return generated_images
 
-# --- Interface do Streamlit ---
-st.set_page_config(page_title="Digit Generator", layout="wide")
-st.title("✍️ Manuscrit digit generator with CVAE")
+# --- Streamlit Interface (in English) ---
+st.set_page_config(page_title="Handwritten Digit Generator", layout="wide")
+st.title("✍️ Handwritten Digit Generator with CVAE")
 
 st.markdown("""
-This app generates digits (0-9) utilizing **Conditional Variational Autoencoder (CVAE)** trained on MNIST dataset.
-Select a digit and click in 'Generate' to see 5 examples.
+This web application generates images of handwritten digits (0-9) using a **Conditional Variational Autoencoder (CVAE)** trained on the MNIST dataset.
+Select a digit and click 'Generate Images' to see 5 examples created by the model.
 """)
 
-st.sidebar.header("Configurations")
-selected_digit = st.sidebar.selectbox("Select a digit:", options=list(range(10)))
+st.divider() # Adds a horizontal line to separate blocks
 
-if st.sidebar.button("Generate images"):
-    st.subheader(f"Generate images for the digit: {selected_digit}")
+# --- Main Screen Controls ---
+
+# The selectbox for choosing the digit
+selected_digit = st.selectbox("Choose a digit:", options=list(range(10)))
+
+# The generation button
+if st.button("Generate Images"):
+    st.subheader(f"Generated Images for Digit: {selected_digit}")
     
+    # Generate 5 images
     images = generate_images(selected_digit, num_images=5)
     
+    # Display the images in 5 columns
     cols = st.columns(5)
     for i, img in enumerate(images):
         with cols[i]:
-            st.image(img, caption=f"#{i+1}", width=150)
+            st.image(img, caption=f"Generated #{i+1}", width=150)
 else:
-    st.info("Select a digit and click in 'Generate images' in the side bar.")
+    # The instruction text
+    st.info("Select a digit and click the button above to start.")
